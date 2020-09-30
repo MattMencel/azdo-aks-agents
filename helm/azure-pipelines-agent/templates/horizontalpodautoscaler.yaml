@@ -1,0 +1,31 @@
+{{- if .Values.useAutoscaler -}}
+{{- $releaseName := .Release.Name -}}
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: "{{ $releaseName }}"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "azure-pipelines-agent.fullname" . }}
+  minReplicas: {{ .Values.replicaCount }}
+  maxReplicas: {{ .Values.maxReplicas }}
+  metrics:
+  {{- if .Values.memTargetAverage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.memTargetAverage }}
+  {{ end }}
+  {{- if .Values.cpuTargetAverage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.memTargetAverage }}
+  {{ end }}
+{{- end }}

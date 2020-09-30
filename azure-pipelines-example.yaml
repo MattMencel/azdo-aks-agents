@@ -1,0 +1,102 @@
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - dockeragent/*
+      - helm/*
+      - azure-pipelines.yaml
+
+schedules:
+  - cron: "0 8 * * *"
+    displayName: Daily midnight build
+    branches:
+      include:
+        - master
+    always: true
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  HELM_EXPERIMENTAL_OCI: 1
+  ACR_NAME: "__ACRNAME__"
+  ACR_SERVICECONNECTION: "__ACRSERVICECONNECTION__"
+  ACR_SPN_USER: "__ACRSERVICEPRINCIPALNAME__"
+  ACR_SPN_ID: "__ACRSERVICEPRINCIPALID__"
+  AZ_SERVICECONNECTION: "__AZURERMSERVICECONNECTION__"
+  KEY_VAULT_NAME: "__KEYVAULTNAME__"
+
+stages:
+  - stage: validate
+    displayName: "Validate Build"
+    jobs:
+      - job: validate_build
+        workspace:
+          clean: all
+        steps:
+          - script: |
+              docker run --rm -i -v ${PWD}/.hadolint.yaml:/bin/hadolint.yaml -e XDG_CONFIG_HOME=/bin hadolint/hadolint < dockeragent/Dockerfile
+            displayName: "Dockerfile Validation"
+
+          - task: Docker@2
+            displayName: Build
+            inputs:
+              command: build
+              repository: aks-build-agent
+              Dockerfile: $(Build.Repository.LocalPath)/dockeragent/Dockerfile
+              buildContext: "$(Build.Repository.LocalPath)"
+
+          - task: HelmInstaller@1
+            displayName: "Helm Install"
+
+          - script: |
+              helm lint --strict helm/azure-pipelines-agent/
+            displayName: "Helm Lint"
+
+  - ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+      - stage: build_and_push
+        dependsOn: validate
+        displayName: "Build and Push"
+        jobs:
+          - job: build_and_push
+            workspace:
+              clean: all
+
+            steps:
+              - script: |
+                  ls -lha $(Build.Repository.LocalPath)
+
+              - task: AzureKeyVault@1
+                inputs:
+                  azureSubscription: "$(AZ_SERVICECONNECTION)"
+                  keyVaultName: "$(KEY_VAULT_NAME)"
+                  secretsFilter: $(ACR_SPN_USER)
+                  runAsPreJob: false # Azure DevOps Services only
+
+              - task: Docker@2
+                displayName: Login to ACR
+                inputs:
+                  command: login
+                  containerRegistry: "$(ACR_SERVICECONNECTION)" # convert to ACR service connection when we can add one
+
+              - task: Docker@2
+                displayName: Build and Push
+                inputs:
+                  repository: "aks-build-agent"
+                  command: "buildAndPush"
+                  Dockerfile: $(Build.Repository.LocalPath)/dockeragent/Dockerfile
+                  buildContext: "$(Build.Repository.LocalPath)"
+                  tags: |
+                    latest
+                    $(Build.BuildNumber)
+
+              - task: HelmInstaller@1
+                displayName: "Helm Install"
+
+              - bash: |
+                  helm registry login $(ACR_NAME).azurecr.io -u $(ACR_SPN_ID) --password $(__KEYVAULT_ACR_USER_SECRET_NAME__)
+                  helm chart save ./helm/azure-pipelines-agent/ $(ACR_NAME).azurecr.io/charts/azure-pipelines-agent:latest
+                  helm chart push $(ACR_NAME).azurecr.io/charts/azure-pipelines-agent:latest
+                displayName: "Push Helm Chart to ACR"
