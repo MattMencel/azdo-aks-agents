@@ -1,7 +1,5 @@
 # azdo-aks-agents
 
-[[_TOC_]]
-
 This repository contains the code and pipeline for provisioning one or more build agents for azure devops. See my blog post for further detail on setup and usage.
 
 ## References
