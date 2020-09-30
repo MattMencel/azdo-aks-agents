@@ -1,0 +1,47 @@
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  # Name of the helmrelease object
+  name: azure-pipelines-agent
+  # Namespace for the deployment and helmrelease object
+  namespace: azure-pipelines-agent
+  annotations:
+    # Tells flux to automatically update images in this file
+    fluxcd.io/automated: "true"
+    # Tells flux to update to the any of them.
+    fluxcd.io/tag.config: glob:*
+spec:
+  # This is the release name that helm will refer to this as
+  releaseName: azure-pipelines-agent
+  helmVersion: v3
+  chart:
+    # This is the chart repo - HelmRelease doesn not yet support OCI compliant chart registries.
+    # https://github.com/fluxcd/helm-operator/issues/481
+    # Using git for the time being
+    # repository: ACR_URL
+    # path: helm/azure-pipelines-agent
+    # # This is the actual chart name
+    # name: azure-pipelines-agent
+    # # This is the chart version not application version
+    # version: 0.2.1
+    git: git@ssh.dev.azure.com:v3/ORGANIZATION/PROJECT/azure-pipelines-agent
+    ref: master
+    path: helm/azure-pipelines-agent
+  rollback:
+    enable: true
+  # The values that would normally be put into a helm values file
+  values:
+    image:
+      repository: ACRNAME.azurecr.io/aks-build-agent
+      tag: latest
+    pipelines:
+      url: "https://dev.azure.com/ORGANIZATION/"
+      pat: ""
+      pool: "AGENT_POOL_NAME"
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 100m
+        memory: 192Mi

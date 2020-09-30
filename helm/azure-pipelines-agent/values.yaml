@@ -9,7 +9,7 @@ cpuTargetAverage: 80
 memTargetAverage: 400
 
 image:
-  repository: __ACRNAME__.azurecr.io/azdo-build-agent
+  repository: __ACRNAME__.azurecr.io/aks-build-agent
   tag: "latest"
   pullPolicy: Always
 

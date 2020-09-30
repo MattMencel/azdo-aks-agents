@@ -1,0 +1,11 @@
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: azure-pipelines-agent-pat-token
+  namespace: azure-pipelines-agent
+spec:
+  vault:
+    name: __KEYVAULTNAME__
+    object:
+      name: azure-pipelines-agent-pat-token
+      type: secret

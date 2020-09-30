@@ -1,0 +1,12 @@
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  # Name of the helmrelease object
+  name: azure-pipelines-agent
+  # Namespace for the deployment and helmrelease object
+  namespace: azure-pipelines-agent
+spec:
+  # The values that would normally be put into a helm values file
+  values:
+    pipelines:
+      pat: azure-pipelines-agent-pat-token@azurekeyvault
